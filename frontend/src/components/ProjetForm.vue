@@ -1,41 +1,3 @@
-<template>
-  <div class="container">
-    <h2>Ajouter un projet</h2>
-    <!-- Un formulaire pour saisir les valeurs du projet à ajouter -->
-    <form @submit.prevent="ajouteProjet">
-      <div>
-        <div>
-          <label for="nom">Nom : </label>
-          <input id="nom" v-model="data.formulaire.nom" size="25" maxlength="25">
-          <button type="submit">Ajouter</button>
-        </div>
-      </div>
-    </form>
-    <div>
-      <!-- Un tableau pour afficher la liste des pays -->
-      <table>
-        <thead>
-        <tr>
-          <th>id</th>
-          <th>Nom</th>
-          <th>Debut</th>
-          <th>Fin</th>
-        </tr>
-        </thead>
-        <tbody>
-        <!-- Une ligne pour chaque pays -->
-        <tr v-for="projet in data.projets" :key="projet.id">
-          <td>{{ projet.id }}</td>
-          <td>{{ projet.nom }}</td>
-          <td>{{ projet.debut }}</td>
-          <td>{{ projet.fin }}</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import {onMounted, reactive} from "vue";
 // Importer la fonction doAjaxRequest qui gère les erreurs d'API
@@ -43,18 +5,35 @@ import doAjaxRequest from "@/util/util.js"
 
 // Pour réinitialiser le formulaire
 const projetVide = {
-  nom: ""
+  personne: "",
+  projet : "",
+  role : "",
+  pourcentage : 10
 };
 
 // Les données du composant
 let data = reactive({
+
+
   // Les données saisies dans le formulaire
   formulaire: {...projetVide},
+
+
+
+  // Ce qui va être utile a display
+
   // Les projets récupérés depuis l'API
   projets: [],
+
+  // Les personnes récupérées via l'API
+  listePersonnes : [],
+
+  // Les rôles via API
+  listeRoles : [],
 });
 
 function ajouteProjet() {
+
   // Ajouter un projet avec les données du formulaire
   const options = { // Options de la requête fetch
     method: "POST", // Verbe HTTP POST pour ajouter un enregistrement
@@ -75,20 +54,141 @@ function ajouteProjet() {
     .catch(error => alert(error.message));
 }
 
-function refresh() {
-  doAjaxRequest("/api/projets") // Méthode GET par défaut
+function ajouterParticipation(){
+
+  console.log(data.formulaire);
+
+  // Options du POST
+
+  const options = {
+    method: "POST",
+      body: JSON.stringify(data.formulaire),
+      headers: {
+      "Content-Type": "application/json",
+    },
+  };
+
+  doAjaxRequest("/api/participations", options)
     .then((result) => {
-      data.projets = result._embedded.projets;
+      console.log("Participation ajoutée :", result);
+      data.formulaire = {...projetVide};
+    })
+    .catch(error => alert(error.message));
+
+}
+
+function getPersonnes(){
+  doAjaxRequest("/api/personnes") // Méthode GET par défaut
+    .then((result) => {
+      let resultat = result;
+      console.log(resultat._embedded.personnes);
+      data.listePersonnes = resultat._embedded.personnes;
     })
     .catch(error => alert(error.message));
 }
 
+function getProjets(){
+  doAjaxRequest("/api/projets") // Méthode GET par défaut
+    .then((result) => {
+      data.projets = result._embedded.projets;
+      console.log(data.projets);
+    })
+    .catch(error => alert(error.message));
+}
+
+function getRoles(){
+  doAjaxRequest("/api/participations") // Méthode GET par défaut
+    .then((result) => {
+
+      result._embedded.participations.forEach(p => {
+        if (!data.listeRoles.includes(p.role)) {
+          data.listeRoles.push(p.role);
+        }
+      });
+
+    })
+    .catch(error => alert(error.message));
+}
+
+function getInfos() {
+  getProjets();
+  getPersonnes();
+  getRoles();
+}
+
 // Appeler la fonction refresh() pour récupérer la liste des pays au chargement du composant
-onMounted(refresh);
+onMounted(getInfos);
 </script>
+
+
+<template>
+  <div class="container">
+    <h2>Enregistrer une participation</h2>
+    <form @submit.prevent="ajouterParticipation">
+      <div id="form">
+        <label for="personne">Personne </label>
+        <select id="personne" v-model="data.formulaire.personne">
+          <option v-for="personne in data.listePersonnes" :key="personne.nom" :value="personne.matricule">{{ personne.nom }} {{personne.prenom}}</option>
+        </select>
+
+        <label for="projet">Projet </label>
+        <select id="projet" v-model="data.formulaire.projet">
+          <option v-for="projet in data.projets" :key="projet.nom" :value="projet.nom">{{ projet.nom }}</option>
+        </select>
+
+        <label for="role">Rôle </label>
+        <select id="role" v-model="data.formulaire.role">
+          <option v-for="role in data.listeRoles" :key="role">{{ role }}</option>
+        </select>
+
+        <label for="slider">Pourcentage</label>
+        <input type="range" id="slider" min="0" max="100" v-model="data.formulaire.pourcentage">
+        <p class="percentage">{{ data.formulaire.pourcentage }}%</p>
+
+        <button type="submit">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</template>
 
 <!-- Un CSS pour ce composant -->
 <style scoped>
+
+#form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+#form select,
+#form input[type="range"] {
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+}
+
+button {
+  margin-top: 10px;
+  background-color: #007BFF;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+
 .container {
   margin: 2rem auto;
   max-width: 600px;
