@@ -30,6 +30,8 @@ let data = reactive({
 
   // Les rôles via API
   listeRoles : [],
+
+  errorMessage: ""
 });
 
 function ajouteProjet() {
@@ -57,6 +59,7 @@ function ajouteProjet() {
 function ajouterParticipation(){
 
   console.log(data.formulaire);
+  data.formulaire.pourcentage = data.formulaire.pourcentage / 100
 
   // Options du POST
 
@@ -73,7 +76,18 @@ function ajouterParticipation(){
       console.log("Participation ajoutée :", result);
       data.formulaire = {...projetVide};
     })
-    .catch(error => alert(error.message));
+    .catch(error => {
+      console.error(error.message);
+
+      // Vérifier si l'erreur correspond à une violation de clé unique
+      if (error.message.includes("Violation d'index unique")) {
+        data.errorMessage = "Impossible de mettre deux fois la même personne sur le projet.";
+      } else {
+        data.errorMessage = "Une erreur est survenue, veuillez réessayer.";
+      }
+    });
+
+  getParticipation()
 
 }
 
@@ -110,6 +124,15 @@ function getRoles(){
     .catch(error => alert(error.message));
 }
 
+function getParticipation(){
+  doAjaxRequest("/api/participations") // Méthode GET par défaut
+    .then((result) => {
+      console.log(result._embedded.participations)
+
+    })
+    .catch(error => alert(error.message));
+}
+
 function getInfos() {
   getProjets();
   getPersonnes();
@@ -128,12 +151,12 @@ onMounted(getInfos);
       <div id="form">
         <label for="personne">Personne </label>
         <select id="personne" v-model="data.formulaire.personne">
-          <option v-for="personne in data.listePersonnes" :key="personne.nom" :value="personne.matricule">{{ personne.nom }} {{personne.prenom}}</option>
+          <option v-for="personne in data.listePersonnes" :key="personne.nom" :value="`/api/personnes/${personne.matricule}`">{{ personne.nom }} {{personne.prenom}}</option>
         </select>
 
         <label for="projet">Projet </label>
         <select id="projet" v-model="data.formulaire.projet">
-          <option v-for="projet in data.projets" :key="projet.nom" :value="projet.nom">{{ projet.nom }}</option>
+          <option v-for="projet in data.projets" :key="projet.nom" :value="projet._links.self.href">{{ projet.nom }}</option>
         </select>
 
         <label for="role">Rôle </label>
@@ -146,6 +169,8 @@ onMounted(getInfos);
         <p class="percentage">{{ data.formulaire.pourcentage }}%</p>
 
         <button type="submit">Ajouter</button>
+
+        <p v-if="data.errorMessage" class="error">{{ data.errorMessage }}</p>
       </div>
     </form>
   </div>
@@ -153,6 +178,12 @@ onMounted(getInfos);
 
 <!-- Un CSS pour ce composant -->
 <style scoped>
+
+.error {
+  color: red;
+  font-weight: bold;
+  margin-top: 10px;
+}
 
 #form {
   display: flex;
