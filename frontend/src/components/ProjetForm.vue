@@ -75,6 +75,7 @@ function ajouterParticipation(){
     .then((result) => {
       console.log("Participation ajoutée :", result);
       data.formulaire = {...projetVide};
+      data.errorMessage = "";
     })
     .catch(error => {
       console.error(error.message);
